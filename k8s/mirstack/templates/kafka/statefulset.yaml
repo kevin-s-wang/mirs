@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mirs-kafka
+  labels:
+    app: mirs-kafka
+  namespace: {{ .Values.namespace }}
+spec:
+  serviceName: kafka-svc
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mirs-kafka
+  template:
+    metadata:
+      labels:
+        app: mirs-kafka
+    spec:
+      containers:
+        - name: mirs-kafka
+          image: bitnami/kafka:3.6.0
+          ports:
+            - containerPort: 9092
+            - containerPort: 9093
+          envFrom:
+            - configMapRef:
+                name: mirs-kafka-config
+          # volumeMounts:
+          #   - name: mirs-kafka-data
+          #     mountPath: /mnt/kafka
+      volumes:
+        - name: mirs-kafka-data
+          persistentVolumeClaim:
+            claimName: kafka-pv-claim

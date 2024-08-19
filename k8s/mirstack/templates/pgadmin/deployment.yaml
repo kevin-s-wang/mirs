@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mirs-pgadmin-deployment
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mirs-pgadmin
+  template:
+    metadata:
+      labels:
+        app: mirs-pgadmin
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: mirs-pgadmin
+          image: "{{ .Values.image.mirs.pgadmin.repository }}:{{ .Values.image.mirs.pgadmin.tag }}"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          env:
+            - name: PGADMIN_DEFAULT_EMAIL
+              value: "kevin@mirs.ai"
+            - name: PGADMIN_DEFAULT_PASSWORD
+              value: "085410"

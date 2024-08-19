@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mirs-postgres-deployment
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mirs-postgres
+  template:
+    metadata:
+      labels:
+        app: mirs-postgres
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: mirs-postgres
+          image: "{{ .Values.image.mirs.db.repository }}:{{ .Values.image.mirs.db.tag }}"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432            
+          envFrom:
+            - configMapRef:
+                name: mirs-postgres-secret
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: mirs-postgres-data
+            - mountPath: /docker-entrypoint-initdb.d
+              name: user-init-db
+      volumes:
+        - name: mirs-postgres-data
+          persistentVolumeClaim:
+            claimName: mirs-postgres-pvc
+        - name: user-init-db
+          configMap:
+            name: mirs-postgres-secret
+            items:
+              - key: init-user-db.sh
+                path: init-user-db.sh

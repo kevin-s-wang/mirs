@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mirs-postgres-secret
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: mirs-postgres
+data:
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: "085410"
+  PGDATA: /var/lib/postgresql/data/pgdata
+
+  init-user-db.sh: |
+    #!/bin/bash
+    set -e
+
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-EOSQL
+      CREATE USER kevin WITH ENCRYPTED PASSWORD '085410';
+
+      CREATE DATABASE mirs WITH
+          ENCODING = 'UTF8'
+          OWNER kevin
+          CONNECTION LIMIT = -1;
+
+      GRANT ALL PRIVILEGES ON DATABASE mirs TO kevin;
+
+        \connect mirs;
+        CREATE EXTENSION vector;
+    EOSQL

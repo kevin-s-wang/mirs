@@ -1,0 +1,8 @@
+Useful Kubernetes commands:
+ - kubectl get pods -n {{ .Values.namespace }}
+ - kubectl get all -n {{ .Values.namespace }}
+
+ Useful Helm commands:
+  - helm upgrade mistack-v1 mistack/ -n {{ .Values.namespace }}
+  - helm delete mistack-v1 -n {{ .Values.namespace }}
+  - helm install mistack-v1 -n {{ .Values.namespace }}

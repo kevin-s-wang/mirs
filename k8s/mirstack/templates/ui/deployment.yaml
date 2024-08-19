@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mirs-ui-deployment
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mirs-ui
+  template:
+    metadata:
+      labels:
+        app: mirs-ui
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: mirs-ui
+          image: "{{ .Values.image.mirs.ui.repository }}:{{ .Values.image.mirs.ui.tag }}"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - mountPath: /usr/share/nginx/data
+              name: mirs-data
+            - mountPath: /etc/nginx/conf.d
+              readOnly: true
+              name: nginx-config
+      volumes:
+        - name: mirs-data
+          persistentVolumeClaim: 
+            claimName: mirs-data-pvc
+        - name: nginx-config
+          configMap:
+            name: nginx-web-config
+            items:
+              - key: nginx.conf
+                path: default.conf

@@ -1,0 +1,15 @@
+namespace: mirs
+image:
+  mirs:
+    ui:
+      repository: mirs/ui
+      tag: 1.0.0
+
+    db:
+      repository: mirs/pgvector
+      tag: latest
+
+    pgadmin:
+      repository: dpage/pgadmin4
+      tag: latest
+    

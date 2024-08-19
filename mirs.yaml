@@ -1,0 +1,27 @@
+server:
+  host: localhost
+  port: 8889
+  relative_images_dir: .dev/data/images
+  images_url_base: http://localhost:8080/images
+  
+  logging:
+    level: debug
+
+  endpoints:
+    embeddings: http://localhost:8889/api/v1/embeddings
+    images: http://localhost:8889/api/v1/images
+
+  kafka:
+    bootstrap_servers: localhost:9092
+      
+  database:
+    uri: 'postgresql://kevin:085410@127.0.0.1/mirs'
+
+# AI Models
+clip:
+  embeddings_dim: 512
+  model: 'ViT-B-32'
+  pretrained: 'laion2b_s34b_b79k'
+
+llm:
+  service_class: mirs.ai.llm.services.HostedGPT

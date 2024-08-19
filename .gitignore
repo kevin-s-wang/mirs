@@ -1,0 +1,8 @@
+test*.py
+test_*.txt
+.dev
+.cache
+.DS_Store   
+__MACOSX/
+__pycache__/
+.ipynb_checkpoints

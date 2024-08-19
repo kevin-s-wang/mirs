@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-web-config
+  namespace: {{ .Values.namespace }}
+data:
+  nginx.conf: |
+    server {
+      listen       80;
+      listen  [::]:80;
+      server_name  www.mirs.ai;
+      root   /usr/share/nginx/html;
+
+      location / {
+          index index.html index.htm;
+      }
+    }
+
+    server {
+      listen       80;
+      listen  [::]:80;
+      server_name  image.mirs.ai;
+
+      location / {
+          root  /usr/share/nginx/data/images;
+          expires 30d;
+      }
+    }
