@@ -226,6 +226,11 @@ async def search(
     if 'error' in query:
         raise QueryException(message=query['error'])
 
+    if 'limit' in query:
+        limit = query['limit']
+    if 'offset' in query:
+        offset = query['offset']
+
     async with httpx.AsyncClient() as http:
         data: httpx.Response = await http.post(config.get_embeddings_api_url(), follow_redirects=True, data={'text':  f'a photo of {query["q"]}'})
         q_embeddings = np.array(data.json(), dtype=np.float32)

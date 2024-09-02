@@ -6,3 +6,6 @@ test_*.txt
 __MACOSX/
 __pycache__/
 .ipynb_checkpoints
+checkpoint-*
+out
+runs
