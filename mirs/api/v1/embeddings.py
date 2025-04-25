@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from PIL import Image
 from mirs.ai.models import clip_model
 from mirs.data import models
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any, Optional, List
 
 from pydantic import BaseModel
 
@@ -49,4 +49,11 @@ async def get_embeddings(
         return embeddings
     else:
         raise ValueError('text or images must be provided')
+    
+
+@router.post('/texts', status_code=status.HTTP_200_OK)
+async def get_texts_embeddings(texts: List[str]):
+    print('texts: ', len(texts))
+    text_features = clip_model.get_text_embeddings(texts)
+    return text_features.cpu().numpy().tolist()
 

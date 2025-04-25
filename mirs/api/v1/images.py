@@ -188,12 +188,34 @@ async def rerank_3(client: ollama.AsyncClient, q: str, images: List[ImageModel])
         texts = [q] + image.captions
         response = await client.embed(model=LANG_MODEL, input=texts)
         q_embeds = response['embeddings'][0]
-        image_embeds = response['embeddings'][1:]
-        clipped_scores = np.clip(cosine_similarity([q_embeds], image_embeds), image.similarity, 1.)
+        captions_embeds = response['embeddings'][1:]
+        clipped_scores = np.clip(cosine_similarity([q_embeds], captions_embeds), image.similarity, 1.)
         image.similarity = np.average(clipped_scores)
         
     sorted_images = sorted(images, key=lambda x: x.similarity, reverse=True)
     return sorted_images
+
+# async def rerank_4(q: str, images: List[ImageModel]) -> List[ImageModel]:
+
+#     if len(images) <= 1:
+#         return images
+    
+#     for image in images:
+#         if not image.captions:
+#             continue
+        
+#         texts = [q] + image.captions
+#         async with httpx.AsyncClient() as http:
+#             data: httpx.Response = await http.post(config.get_embeddings_api_url() + '/texts', follow_redirects=True, json=texts)
+#             embeddings = np.array(data.json(), dtype=np.float32)
+
+#             q_embeds = embeddings[0]
+#             captions_embeds = embeddings[1:]
+#         clipped_scores = np.clip(cosine_similarity([q_embeds], captions_embeds), image.similarity, 1.)
+#         image.similarity = np.average(clipped_scores)
+        
+#     sorted_images = sorted(images, key=lambda x: x.similarity, reverse=True)
+#     return sorted_images
 
 
 @router.post('/search', response_model=ImageSearchResult)
@@ -218,22 +240,33 @@ async def search(
         use_default_prompt = True
         prompt = 'Generate the query based on the images provided'
 
-    client = ollama.AsyncClient()
-    images_in_bytes = [io.BytesIO(await image.read()) for image in images]
+    image_semantic_retrieval_only = use_default_prompt and len(images) == 1
 
-    query = await get_hybrid_semantic_query(client, prompt, images_in_bytes)
-    
-    if 'error' in query:
-        raise QueryException(message=query['error'])
+    if not image_semantic_retrieval_only:
+        client = ollama.AsyncClient()
+        images_in_bytes = [io.BytesIO(await image.read()) for image in images]
 
-    if 'limit' in query:
-        limit = query['limit']
-    if 'offset' in query:
-        offset = query['offset']
+        query = await get_hybrid_semantic_query(client, prompt, images_in_bytes)
+        
+        if 'error' in query:
+            raise QueryException(message=query['error'])
+
+        if 'limit' in query and query['limit'] is not None:
+            limit = query['limit']
+        if 'offset' in query and query['offset'] is not None:
+            offset = query['offset']
 
     async with httpx.AsyncClient() as http:
-        data: httpx.Response = await http.post(config.get_embeddings_api_url(), follow_redirects=True, data={'text':  f'a photo of {query["q"]}'})
-        q_embeddings = np.array(data.json(), dtype=np.float32)
+        q_embeddings = None
+        if not image_semantic_retrieval_only:
+            data: httpx.Response = await http.post(config.get_embeddings_api_url(), follow_redirects=True, data={'text':  f'a photo of {query["q"]}'})
+            q_embeddings = np.array(data.json(), dtype=np.float32)
+        else:
+            image_files = [('images', (x.filename, x.file, x.content_type)) for x in images]
+            data: httpx.Response = await http.post(config.get_embeddings_api_url(), follow_redirects=True, 
+                                                     files=image_files)            
+            image_embeddings_list: List[List[float]] = data.json()
+            q_embeddings = np.array(image_embeddings_list[0], dtype=np.float32)
             
         result_set = db.query(models.Image) \
                 .filter(models.Image.embeddings != None) \
@@ -242,20 +275,7 @@ async def search(
                 .limit(limit)
         db.commit()
 
-        image_embeddings = None
-        if use_default_prompt and len(images) == 1:
-            image_files = [('images', (x.filename, x.file, x.content_type)) for x in images]
-            data: httpx.Response = await http.post(config.get_embeddings_api_url(), follow_redirects=True, 
-                                                     files=image_files)            
-            image_embeddings_list: List[List[float]] = data.json()
-            image_embeddings = np.array(image_embeddings_list[0], dtype=np.float32)
-
         _images = []
-        _embeddings = [q_embeddings]
-        if image_embeddings is not None:
-            print('---->>>> Re-ranking with image embeddings')
-            _embeddings = [q_embeddings, image_embeddings]
-
         for row in result_set:
             _real_filename = os.path.basename(row.path)
 
@@ -273,12 +293,9 @@ async def search(
                 gps_altitude_ref=row.gps_altitude_ref,
             )
             
-
-
-            max_similarity = np.max(cosine_similarity(_embeddings, [row.embeddings]))
             _images.append(ImageModel(
                     id=row.id, 
-                    similarity=max_similarity,
+                    similarity=cosine_similarity([q_embeddings], [row.embeddings]),
                     filename=row.filename,
                     captions=row.captions,
                     tags=row.tags,
@@ -287,7 +304,11 @@ async def search(
                     updated_at=row.updated_at,
                     url=config.get_images_url(_real_filename),  
                     content_type=row.content_type))
-    data = await rerank_3(client, query['q'], _images)
+            
+    if not image_semantic_retrieval_only:
+        data = await rerank_3(client, query['q'], _images)
+    else:
+        data = _images
     return ImageSearchResult(limit=limit, offset=offset, data=data)
 
 
@@ -450,10 +471,11 @@ async def update_image_tags(image_id: str, db: Session = Depends(get_db)):
     client = ollama.AsyncClient()
     if len(image.captions) > 0:
         formatted_captions = '\n'.join([f'- {caption}' for caption in image.captions])
-        prompt = f'Generate at most 10 tags referring to the following descriptions:\n\n{formatted_captions}\n\nTags in json array:'
+        prompt = f'Generate at most 10 tags referring to the following descriptions:\n\n{formatted_captions}\n\nResponse format MUST strictly follow the below example:\n["tag1", "tag2",...]\n\Here are the generated tags:\n'
         result =  await client.generate(LANG_MODEL, prompt=prompt)
         print('---------------- result: ', result)
-        tags = json.loads(result['message']['content'])
+        # tags = unsafe_extract_response(result['response'])
+        tags = json.loads(result['response'])
 
     if tags and len(tags) > 0:
         image.tags = tags
@@ -461,6 +483,12 @@ async def update_image_tags(image_id: str, db: Session = Depends(get_db)):
         return image.tags
     else:
         return []
+    
+def unsafe_extract_response(text: str) -> List[str]:
+    p = r"```(?:\w+\s+)?(.*?)```"
+    matches = re.findall(p, text, re.DOTALL)
+    blocks = [block.strip() for block in matches]
+    return json.loads(blocks[0])
 
 # @router.post('/{image_id}/tags', status_code=status.HTTP_200_OK)
 # async def update_image_tags(image_id: str, db: Session = Depends(get_db)):

@@ -1,0 +1,1 @@
+Generate at most 10 tags referring to the following descriptions:\n\n{formatted_captions}\n\nOutputexample:\n["tag1", "tag2"]\nOutput:

@@ -71,16 +71,16 @@ def extract_json_objects(markdown: str) -> List[Any]:
     Returns:
         List[Any]: A list of extracted JSON objects parsed as Python data types.
     """
-    pattern = r'```\s*json\s*(.*?)\s*```'
+    pattern = r'```\s*(json)?\s*(.*?)\s*```'
     matches = re.findall(pattern, markdown, re.MULTILINE | re.DOTALL)
 
     json_objects = []
     for match in matches:
         try:
-            json_obj = json.loads(match.strip())
+            json_obj = json.loads(match[1].strip())
             json_objects.append(json_obj)
         except json.JSONDecodeError as e:
-            print(f"Invalid JSON found: {match.strip()}. Error: {e}")
+            print(f"Invalid JSON found: {match[1].strip()}. Error: {e}")
             continue
 
     return json_objects

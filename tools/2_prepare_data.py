@@ -2,37 +2,31 @@ import os
 import json
 import httpx
 import asyncio
-import zipfile
 from tqdm import tqdm
+from pathlib import Path
+import glob
 
-FLICKR8K = 'dataset_flickr8k.json'
-
-DATASET_DIR = '.dev/datasets'
 
 
 async def main():
-    root_dir = os.path.dirname(os.path.dirname(__file__))
-    datasets_dir = os.path.join(root_dir, DATASET_DIR)
-    flickr8k_filepath = os.path.join(datasets_dir, 'Flickr8k_Dataset.zip')
-    print(flickr8k_filepath)
-    flickr8k_basedir = os.path.join(datasets_dir, 'Flicker8k_Dataset')
+    dataset_dir = '/Users/I561210/Learning/bridgenet/datasets'
+    for filename in glob.glob('*.json', root_dir=dataset_dir):
+        if filename == 'metadata.json':
+            continue
 
-    if not os.path.exists(flickr8k_basedir):
-        print(f'Extracting {flickr8k_filepath} to {datasets_dir} ...')
-        with zipfile.ZipFile(flickr8k_filepath, 'r') as zip_ref:
-            zip_ref.extractall(path=datasets_dir)
-        print('Done')
-
-    flickr8k_metadata_filepath = os.path.join(datasets_dir, FLICKR8K)
-    with open(flickr8k_metadata_filepath, 'r') as f:
-        flickr8k_metadata = json.load(f)
-    flickr8k_images = flickr8k_metadata['images']
+        metadata_path = os.path.join(dataset_dir, filename)
+        dataset_name = Path(metadata_path).stem
+        with open(metadata_path, 'r') as stream:
+            metadata = json.load(stream)
 
     # Test
     # flickr8k_images = flickr8k_images[1:2]
+    images = metadata['images']
 
-    for image in tqdm(flickr8k_images):
-        image_filepath = os.path.join(datasets_dir, 'Flicker8k_Dataset', image['filename'])
+    print('Uploading images for dataset: ', dataset_name)
+
+    for image in tqdm(images):
+        image_filepath = os.path.join(dataset_dir, dataset_name, image['filename'])
         with open(image_filepath, 'rb') as image_file:
             # print('Uploading image: ', image['filename'])
             captions = [sentence['raw'] for sentence in image['sentences']]

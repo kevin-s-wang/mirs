@@ -19,9 +19,9 @@ server:
 
 # AI Models
 clip:
-  embeddings_dim: 512
-  model: 'ViT-B-32'
-  pretrained: 'laion2b_s34b_b79k'
+  embeddings_dim: 1024
+  model: 'convnext_xxlarge'
+  pretrained: 'laion2B-s34B-b82K-augreg-soup'
 
 llm:
   service_class: mirs.ai.llm.services.HostedGPT
